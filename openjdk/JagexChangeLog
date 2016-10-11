@@ -1,0 +1,26 @@
+OpenJDK files modified by Jagex Ltd
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+MAY 2010
+~~~~~~~~
+
+Files changed to fix the Windows build on Vista:
+corba/make/common/shared/Compiler-msvc.gmk
+corba/make/common/shared/Defs-windows.gmk
+jdk/make/common/shared/Compiler-msvc.gmk
+jdk/make/common/shared/Defs-windows.gmk
+jdk/make/common/shared/Sanity.gmk
+jdk/make/sun/font/Makefile
+jdk/make/tools/freetypecheck/Makefile
+make/sanity-rules.gmk
+
+Files changed to allow operation within a flat directory structure:
+hotspot/src/os/windows/vm/hpi_windows.cpp
+hotspot/src/os/windows/vm/os_windows.cpp
+hotspot/src/share/vm/memory/dump.cpp
+
+File changed to fix create.bat's creation of Visual Studio projects for building HotSpot:
+hotspot/src/share/tools/MakeDeps/WinGammaPlatformVC7.java
+
+File changed to remove unnecessary and out of date loadLibrary call:
+jdk/src/share/classes/sun/font/FontManagerNativeLibrary.java

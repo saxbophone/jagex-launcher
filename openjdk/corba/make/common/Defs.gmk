@@ -1,0 +1,395 @@
+#
+# Copyright 1995-2009 Sun Microsystems, Inc.  All Rights Reserved.
+# DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+#
+# This code is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License version 2 only, as
+# published by the Free Software Foundation.  Sun designates this
+# particular file as subject to the "Classpath" exception as provided
+# by Sun in the LICENSE file that accompanied this code.
+#
+# This code is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# version 2 for more details (a copy is included in the LICENSE file that
+# accompanied this code).
+#
+# You should have received a copy of the GNU General Public License version
+# 2 along with this work; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
+# CA 95054 USA or visit www.sun.com if you need additional information or
+# have any questions.
+#
+
+#
+# Common variables used by all the Java makefiles.  This file should
+# not contain rules.
+#
+
+#
+# On Solaris, the 'make' utility from Sun will not work with these makefiles.
+#    This little rule is only understood by Sun's make, and is harmless
+#    when seen by the GNU make tool. If using Sun's make, this causes the
+#    make command to fail.
+#
+SUN_MAKE_TEST:sh = echo "ERROR: PLEASE USE GNU VERSION OF MAKE"; exit 33
+
+include $(BUILDDIR)/common/shared/Platform.gmk
+
+TOPDIR=$(BUILDDIR)/..
+
+include $(TOPDIR)/make/common/CancelImplicits.gmk
+
+# Historically PLATFORM_SRC used to be src/$(PLATFORM), but we switched it to
+# src/solaris so if you want to build on Linux you didn't need a src/linux
+# directory.  In an ideal world it would be called src/genunix but we are not
+# there yet.
+#
+ifndef SHARE_SRC
+  SHARE_SRC    = $(TOPDIR)/src/share
+endif
+
+_OUTPUTDIR=$(TOPDIR)/build/$(PLATFORM)-$(ARCH)
+
+#
+# Get platform definitions
+#
+
+include $(TOPDIR)/make/common/Defs-$(PLATFORM).gmk
+
+#
+# Localizations for the different parts of the product beyond English
+#
+
+JRE_LOCALES   = de es fr it ja ko sv zh_CN zh_TW zh_HK
+PLUGIN_LOCALES = de es fr it ja ko sv zh_CN zh_TW zh_HK
+JDK_LOCALES  = ja zh_CN
+
+#
+# A list of locales we support but don't have resource files.
+# This is defined to optimize the search of resource bundles.
+#
+JRE_NONEXIST_LOCALES = en en_US de_DE es_ES fr_FR it_IT ja_JP ko_KR sv_SE zh
+
+#
+# All libraries except libjava and libjvm itself link against libjvm and
+# libjava, the latter for its exported common utilities.  libjava only links
+# against libjvm.  Programs' makefiles take their own responsibility for
+# adding other libs.
+#
+ifdef PACKAGE
+# put JAVALIB first, but do not lose any platform specific values....
+  LDLIBS_COMMON = $(JAVALIB)
+endif # PACKAGE
+
+#
+# Libraries that must appear ahead of libc.so on the link command line
+#
+ifdef PROGRAM
+
+  ifeq ($(PLATFORM), solaris)
+    LDLIBS_COMMON = -lthread -ldl
+  endif
+
+  ifeq ($(PLATFORM), linux)
+    LDLIBS_COMMON = -ldl
+  endif
+
+endif # PROGRAM
+
+LDLIBS_COMMON += $(EXTRA_LIBS)
+
+#
+# Default is to build, not import native binaries
+#
+ifndef IMPORT_NATIVE_BINARIES
+  IMPORT_NATIVE_BINARIES=false
+endif
+# If importing libraries in, no incremental builds
+ifeq ($(IMPORT_NATIVE_BINARIES),true)
+ INCREMENTAL_BUILD=false
+endif
+
+# for generated libraries
+LIBDIR              = $(OUTPUTDIR)/lib
+ABS_LIBDIR          = $(ABS_OUTPUTDIR)/lib
+# Optional place to save the windows .lib files
+LIBFILES_DIR        = $(OUTPUTDIR)/libfiles
+# for ext jre files
+EXTDIR              = $(LIBDIR)/ext
+# for generated include files
+INCLUDEDIR          = $(OUTPUTDIR)/include
+# for generated class files
+CLASSBINDIR         = $(OUTPUTDIR)/classes
+DEMOCLASSDIR        = $(OUTPUTDIR)/democlasses
+# for generated tool class files
+BUILDTOOLCLASSDIR   = $(OUTPUTDIR)/btclasses
+# for build tool jar files
+BUILDTOOLJARDIR     = $(OUTPUTDIR)/btjars
+ABS_BUILDTOOLJARDIR = $(ABS_OUTPUTDIR)/btjars
+# for generated java source files
+GENSRCDIR           = $(OUTPUTDIR)/gensrc
+# for generated C source files (not javah)
+GENNATIVESRCDIR     = $(OUTPUTDIR)/gennativesrc
+# for imported source files
+IMPORTSRCDIR        = $(OUTPUTDIR)/impsrc
+# for imported documents
+IMPORTDOCDIR        = $(OUTPUTDIR)/impdoc
+# for generated demo
+DEMODIR             = $(OUTPUTDIR)/demo
+# for sample code
+SAMPLEDIR           = $(OUTPUTDIR)/sample
+# for generated documentation
+DOCSDIR             = $(OUTPUTDIR)/docs$(DOCSDIRSUFFIX)
+DOCSDIRSUFFIX       =
+
+# An attempt is made to generate unique enough directories for the
+# generated files to not have name collisisons. Most build units
+# defines PRODUCT (except Release.gmk), but then they may or may 
+# not define PACKAGE, THREADIR (only HPI uses this), PROGRAM, and 
+# LIBRARY. This code chunk attempts to generate a unique 
+# OBJDIR/CLASSHDRDIR for each build unit based on which of those 
+# values are set within each build unit.
+
+UNIQUE_LOCATION_STRING = tmp
+
+ifneq ($(PRODUCT),)
+  UNIQUE_LOCATION_STRING += /$(PRODUCT)
+endif
+
+ifneq ($(PACKAGE),)
+  UNIQUE_LOCATION_STRING += /$(PACKAGE)
+endif
+
+ifneq ($(PROGRAM),)
+  UNIQUE_LOCATION_STRING += /$(PROGRAM)
+endif
+
+ifneq ($(LIBRARY),)
+  ifneq ($(LIBRARY_OUTPUT),)
+    UNIQUE_LOCATION_STRING += /$(LIBRARY_OUTPUT)
+  else
+    UNIQUE_LOCATION_STRING += /$(LIBRARY)
+  endif
+endif
+
+ifneq ($(THREADDIR),)
+  UNIQUE_LOCATION_STRING += /$(THREADDIR)
+endif
+
+# the use of += above makes a space separated list which we need to 
+# remove for filespecs.
+#
+NULLSTRING :=
+ONESPACE := $(NULLSTRING) # space before this comment is required.
+UNIQUE_PATH = $(subst $(ONESPACE),,$(UNIQUE_LOCATION_STRING))
+
+# TEMPDIR is a unique general purpose directory
+# need to use 'override' because GNU Make on Linux exports the wrong
+# value.
+override TEMPDIR      = $(OUTPUTDIR)/$(UNIQUE_PATH)
+override ABS_TEMPDIR  = $(ABS_OUTPUTDIR)/$(UNIQUE_PATH)
+
+# This must be created right away for pattern rules in Sanity.gmk to work.
+dummy1:=$(shell $(MKDIR) -p $(TEMPDIR))
+dummy2:=$(shell $(MKDIR) -p $(TEMP_DISK))
+
+# OBJDIRNAME is the name of the directory where the object code is to
+#   be placed. It's name depends on whether the data model architecture 
+#   is 32-bit or not.
+ifneq ($(ARCH_DATA_MODEL), 32)
+  OBJDIRNAME  = obj$(ARCH_DATA_MODEL)$(OBJDIRNAME_SUFFIX)
+else
+  OBJDIRNAME  = obj$(OBJDIRNAME_SUFFIX)
+endif
+OBJDIR      = $(TEMPDIR)/$(OBJDIRNAME)
+
+# CLASSHDRDIR is where the generated C Class Header files go.
+CLASSHDRDIR = $(TEMPDIR)/CClassHeaders
+
+#
+# CLASSDESTDIR can be used to specify the directory where generated classes
+# are to be placed. The default is CLASSBINDIR.
+#
+ifndef CLASSDESTDIR
+CLASSDESTDIR = $(CLASSBINDIR)
+endif
+
+INCLUDES = -I. -I$(CLASSHDRDIR) \
+	$(patsubst %,-I%,$(subst $(CLASSPATH_SEPARATOR), ,$(VPATH.h))) $(OTHER_INCLUDES)
+OTHER_CPPFLAGS = $(INCLUDES)
+
+
+#
+# vpaths.  These are the default locations searched for source files.
+# GNUmakefiles of individual areas often override the default settings.
+# There are no longer default vpath entries for C and assembler files
+# so we can ensure that libraries don't get their hands on JVM files.
+#
+# We define an intermediate variable for Java files because
+# we use its value later to help define $SOURCEPATH
+
+VPATH0.java = $(GENSRCDIR)$(CLASSPATH_SEPARATOR)$(PLATFORM_SRC)/classes$(CLASSPATH_SEPARATOR)$(SHARE_SRC)/classes
+VPATH.java = $(VPATH0.java)
+vpath %.java $(VPATH.java)
+vpath %.class $(CLASSBINDIR)
+vpath %.$(OBJECT_SUFFIX) $(OBJDIR)
+
+#
+# VPATH.h is used elsewhere to generate include flags.  By default, 
+# anyone has access to the include files that the JVM area exports,
+# namely jni.h, jvm.h, and jni_utils.h, plus their platform-specific
+# relatives.
+#
+ifeq ($(PLATFORM), windows)
+  VPATH.h = $(BOOTDIR)/include;$(BOOTDIR)/include/$(PLATFORM_INCLUDE_NAME)
+else
+  VPATH.h = $(PLATFORM_SRC)/javavm/export$(CLASSPATH_SEPARATOR)$(SHARE_SRC)/javavm/export$(CLASSPATH_SEPARATOR)$(SHARE_SRC)/javavm/include$(CLASSPATH_SEPARATOR)$(PLATFORM_SRC)/javavm/include
+endif
+vpath %.h   $(VPATH.h)
+
+#
+# Used in two ways: helps link against libjava.so. Also if overridden
+# determines where your shared library is installed.
+#
+ifndef LIB_LOCATION
+  LIB_LOCATION    =  $(LIBDIR)/$(LIBARCH)
+endif
+
+#
+# Java header and stub variables
+#
+CLASSHDRS     = $(patsubst %,$(CLASSHDRDIR)/%.h,$(subst .,_,$(CLASSES.export)))
+CLASSSTUBOBJS = classstubs.$(OBJECT_SUFFIX)
+STUBPREAMBLE  = $(INCLUDEDIR)/StubPreamble.h
+
+#
+# Classpath seen by javac (different from the one seen by the VM
+# running javac), and useful variables.
+#
+SOURCEPATH	= $(VPATH.java)
+PKG		= $(shell $(EXPR) $(PACKAGE) : '\([a-z]*\)')
+PKGDIR		= $(subst .,/,$(PACKAGE))
+
+#
+# The java/javac/jdk variables (JAVAC_CMD, JAVA_CMD, etc.)
+#
+include $(BUILDDIR)/common/shared/Defs-java.gmk
+
+#
+# Set opt level to ALT_OPT if set otherwise _OPT
+#
+POPT = $(_OPT$(ALT_OPT))$(ALT_OPT)
+
+#
+# Convenient macros
+#
+
+# Prepare $@ target, remove old one and making sure directory exists
+define prep-target
+$(MKDIR) -p $(@D)
+$(RM) $@
+endef
+
+# Simple install of $< file to $@
+define install-file
+$(prep-target)
+$(CP) $< $@
+endef
+
+# Cleanup rule for after debug java run (hotspot.log file is left around)
+#   (This could be an old leftover file in a read-only area, use the @- prefix)
+HOTSPOT_LOG_NAME = hotspot.log
+define java-vm-cleanup
+if [ -w $(HOTSPOT_LOG_NAME) ] ; then $(RM) $(HOTSPOT_LOG_NAME); fi
+endef
+
+# Default make settings for processing SUBDIRS with clobber or clean names
+SUBDIRS_MAKEFLAGS-clobber = INCREMENTAL_BUILD=false
+SUBDIRS_MAKEFLAGS-clean   = INCREMENTAL_BUILD=false
+
+# Given a SUBDIRS list, cd into them and make them
+#   SUBDIRS_MAKEFLAGS      Make settings for a subdir make
+#   SUBDIRS_MAKEFLAGS-$@   Make settings specific to this target
+define SUBDIRS-loop
+@for i in DUMMY $(SUBDIRS) ; do \
+  if [ "$$i" != "DUMMY" ] ; then \
+    $(MAKE) -C $${i} $@ \
+          $(SUBDIRS_MAKEFLAGS) \
+          $(SUBDIRS_MAKEFLAGS-$@) \
+          FULL_VERSION=$(FULL_VERSION) \
+          RELEASE=$(RELEASE) || exit 1; \
+  fi ; \
+done
+endef
+
+# Given a OTHERSUBDIRS list, cd into them and make them (extra loop define)
+#   OTHERSUBDIRS_MAKEFLAGS      Make settings for a subdir make
+define OTHERSUBDIRS-loop
+@for i in DUMMY $(OTHERSUBDIRS) ; do \
+  if [ "$$i" != "DUMMY" ] ; then \
+    $(MAKE) -C $${i} $@ \
+          $(OTHERSUBDIRS_MAKEFLAGS) \
+          FULL_VERSION=$(FULL_VERSION) \
+          RELEASE=$(RELEASE) || exit 1; \
+  fi ; \
+done
+endef
+
+#
+# Create BYFILE OPT and DBG settings, if CFLAGS_OPT/foobar.o is set then it is
+#    used for this file, otherwise the default settings are used.
+#
+CFLAGS_$(VARIANT)/BYFILE    = $(CFLAGS_$(VARIANT)/$(@F)) \
+                              $(CFLAGS_$(VARIANT)$(CFLAGS_$(VARIANT)/$(@F)))
+CXXFLAGS_$(VARIANT)/BYFILE  = $(CXXFLAGS_$(VARIANT)/$(@F)) \
+                              $(CXXFLAGS_$(VARIANT)$(CXXFLAGS_$(VARIANT)/$(@F)))
+
+#
+# Tool flags
+#
+ASFLAGS         = $(ASFLAGS_$(VARIANT)) $(ASFLAGS_COMMON) $(OTHER_ASFLAGS)
+CFLAGS          = $(CFLAGS_$(VARIANT)/BYFILE)   $(CFLAGS_COMMON) $(OTHER_CFLAGS)
+CXXFLAGS        = $(CXXFLAGS_$(VARIANT)/BYFILE) $(CXXFLAGS_COMMON) $(OTHER_CXXFLAGS)
+CPPFLAGS        = $(CPPFLAGS_$(VARIANT)) $(CPPFLAGS_COMMON) $(OTHER_CPPFLAGS) \
+		  $(DEFINES) $(OPTIONS:%=-D%)
+LDFLAGS         = $(LDFLAGS_$(VARIANT)) $(LDFLAGS_COMMON) $(OTHER_LDFLAGS)
+LDLIBS          = $(OTHER_LDLIBS) $(LDLIBS_$(VARIANT)) $(LDLIBS_COMMON)
+LINTFLAGS       = $(LINTFLAGS_$(VARIANT)) $(LINTFLAGS_COMMON) \
+		  $(OTHER_LINTFLAGS)
+
+# this should be moved into Defs-<platform>.gmk.....
+ifeq ($(PLATFORM), windows)
+  VERSION_DEFINES = -DRELEASE="\"$(RELEASE)\""
+else
+  VERSION_DEFINES = -DRELEASE='"$(RELEASE)"'
+endif
+
+# Prevent the use of many default suffix rules we do not need
+.SUFFIXES:
+.SUFFIXES: .c .o .h .obj .cpp .hpp .java .class
+
+# Make sure we are all insane
+ifdef INSANE
+  export INSANE
+endif
+
+# Make sure we have the current year
+ifndef COPYRIGHT_YEAR
+  ifdef ALT_COPYRIGHT_YEAR
+    COPYRIGHT_YEAR := $(ALT_COPYRIGHT_YEAR)
+  else
+    COPYRIGHT_YEAR := $(shell $(DATE) '+%Y')
+  endif
+  export COPYRIGHT_YEAR
+endif
+
+# Install of imported file (JDK_IMPORT_PATH, or some other external location)
+define install-import-file
+@$(ECHO) "ASSEMBLY_IMPORT: $@"
+$(install-file)
+endef
+
+.PHONY: all build clean clobber
